@@ -5,6 +5,7 @@ import com.finance.debitms.repository.DebitRepository;
 import com.finance.debitms.service.DebitService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import lombok.extern.slf4j.Slf4j;
@@ -29,19 +30,19 @@ public class DebitHandler {
         log.info("Find by Id: {}", id);
         return debitService.findById(id);
     }
-//
-//    @GetMapping("/client/{id}")
-//    public Mono findByClientId(@PathVariable("id") String clientId) {
-//        log.info("Find products by ClientId: {}", clientId);
-//
-//        var restTemplate = new RestTemplate();
-//        Flux debits = debitService.findByClientId(clientId);
-//
+
+    @GetMapping("/client/{id}")
+    public Mono findByClientId(@PathVariable("id") String clientId) {
+        log.info("Find products by ClientId: {}", clientId);
+
+        var restTemplate = new RestTemplate();
+        Mono<Debit> debit = debitService.findByClientId(clientId);
+
 //        debits.subscribe( debit -> restTemplate.getForObject("http://localhost:8081/product/{" + debit() + "}", Mono.class));
-//
-//
-//        return debit;
-//    }
+
+
+        return restTemplate.getForObject("http://localhost:8081/product/{" + debit.fla + "}", Mono.class);
+    }
 
     @PostMapping("/save")
     public void createEmp(@RequestBody Debit debit) {
