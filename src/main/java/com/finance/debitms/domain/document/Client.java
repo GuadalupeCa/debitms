@@ -1,12 +1,10 @@
-package com.finance.debitms.document;
+package com.finance.debitms.domain.document;
 
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
-
-import java.util.Date;
 
 @Document(collection = "clients")
 @Getter

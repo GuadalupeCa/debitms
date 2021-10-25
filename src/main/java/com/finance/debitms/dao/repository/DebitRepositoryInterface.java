@@ -1,6 +1,6 @@
-package com.finance.debitms.repository;
+package com.finance.debitms.dao.repository;
 
-import com.finance.debitms.document.Debit;
+import com.finance.debitms.domain.document.Debit;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 

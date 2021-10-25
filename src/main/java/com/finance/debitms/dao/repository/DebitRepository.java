@@ -1,16 +1,17 @@
-package com.finance.debitms.repository;
+package com.finance.debitms.dao.repository;
 
-import com.finance.debitms.document.Debit;
+import com.finance.debitms.dao.persistence.DebitPersistenceRepository;
+import com.finance.debitms.domain.document.Debit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Repository
-public class DebitRepositoryImplements implements DebitRepositoryInterface {
+public class DebitRepository implements DebitRepositoryInterface {
 
     @Autowired
-    private DebitRepository debitRepository;
+    private DebitPersistenceRepository debitRepository;
 
     @Override
     public Flux findAll() {

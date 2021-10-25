@@ -1,4 +1,4 @@
-package com.finance.debitms.document;
+package com.finance.debitms.domain.document;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
