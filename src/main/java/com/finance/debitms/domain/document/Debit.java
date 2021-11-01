@@ -12,6 +12,7 @@ public class Debit {
     @Id
     private String id;
     private String productId;
+    //
     private String clientId;
     private String account;
 }

@@ -1,9 +1,9 @@
-package com.finance.debitms.dao.persistence;
+package com.finance.debitms.repository;
 
 import com.finance.debitms.domain.document.Debit;
 import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
 import reactor.core.publisher.Mono;
 
-public interface DebitPersistenceRepository extends ReactiveMongoRepository<Debit, String> {
+public interface DebitRepositoryExt extends ReactiveMongoRepository<Debit, String> {
     Mono<Debit> findByClientId(String clientId);
 }

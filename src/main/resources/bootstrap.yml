@@ -1,6 +1,6 @@
 spring:
   application:
-    name: debitms
+    name: debit-ms
   cloud:
     config:
       uri: http://localhost:8888

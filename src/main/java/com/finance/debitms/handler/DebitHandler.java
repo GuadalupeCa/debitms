@@ -5,50 +5,66 @@ import com.finance.debitms.domain.document.Product;
 import com.finance.debitms.service.DebitService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
-import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@RestController
-@RequestMapping("/debit")
-@RefreshScope
+@Component
 public class DebitHandler {
 
     @Autowired
     private DebitService debitService;
 
-    @GetMapping("/")
-    public Flux findAll() {
+    public Mono findAll(ServerRequest serverRequest) {
         log.info("Find all clients");
-        return debitService.findAll();
+        return ServerResponse.ok()
+                .body(debitService.findAll(), Debit.class);
     }
 
-    @GetMapping("/{id}")
-    public Mono<Debit> findById(@PathVariable("id") String id) {
+    public Mono findById(ServerRequest serverRequest) {
+        String id = serverRequest.pathVariable("id");
         log.info("Find by Id: {}", id);
-        return debitService.findById(id);
+        return ServerResponse.ok().body(debitService.findById(id), Debit.class);
     }
 
-    @GetMapping("/client/{id}")
-    public Mono findByClientId(@PathVariable("id") String clientId) {
-        log.info("Find products by ClientId: {}", clientId);
-        Mono<Debit> debit = debitService.findByClientId(clientId);
+    public Mono findByClientId(ServerRequest serverRequest) {
+        String id = serverRequest.pathVariable("id");
+        log.info("Find products by ClientId: {}", id);
+        Mono<Debit> debit = debitService.findByClientId(id);
 
         return debit.flatMap(d -> WebClient.create()
                 .get()
                 .uri("http://localhost:8081/product/{id})", d.getProductId())
                 .retrieve()
-                .bodyToMono(Mono.class));
+                .bodyToMono(Product.class));
     }
 
-    @PostMapping("/save")
-    public void createEmp(@RequestBody Debit debit) {
-        debitService.save(debit).subscribe();
+    public Mono save(ServerRequest serverRequest) {
+        Mono<Debit> debit = serverRequest.bodyToMono(Debit.class);
+        log.info("Save debit");
+        return debit.flatMap( d -> ServerResponse
+                .status(HttpStatus.CREATED)
+                .body( debitService.save(d), Debit.class));
+    }
+
+    public Mono update(ServerRequest serverRequest) {
+        Mono<Debit> debit = serverRequest.bodyToMono(Debit.class);
+        log.info("Update debit");
+        return debit.flatMap( d -> ServerResponse
+                .status(HttpStatus.CREATED)
+                .body( debitService.save(d), Debit.class));
+    }
+
+    public Mono deleteById(ServerRequest serverRequest) {
+        String id = serverRequest.pathVariable("id");
+        log.info("Delete debit by id");
+        return debitService.deleteById(id);
     }
 }

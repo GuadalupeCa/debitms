@@ -1,6 +1,6 @@
 package com.finance.debitms.service;
 
-import com.finance.debitms.dao.persistence.DebitPersistenceRepository;
+import com.finance.debitms.repository.DebitRepository;
 import com.finance.debitms.domain.document.Debit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -11,22 +11,25 @@ import reactor.core.publisher.Mono;
 public class DebitService{
 
     @Autowired
-    private DebitPersistenceRepository debitRepositoryInterface;
+    private DebitRepository debitRepository;
 
-    public Flux findAll(){
-        return debitRepositoryInterface.findAll();
+    public Flux<Debit> findAll(){
+        return debitRepository.findAll();
     }
 
-    public Mono findById(String id){
-        return debitRepositoryInterface.findById(id);
+    public Mono<Debit> findById(String id){
+        return debitRepository.findById(id);
     }
 
     public Mono<Debit> findByClientId(String clientId){
-        return debitRepositoryInterface.findByClientId(clientId);
+        return debitRepository.findByClientId(clientId);
     }
 
-    public Mono save(Debit debit){
-        return debitRepositoryInterface.save(debit);
+    public Mono<Debit> save(Debit debit){
+        return debitRepository.save(debit);
     }
 
+    public Mono<Void> deleteById(String id){
+        return debitRepository.deleteById(id);
+    }
 }
