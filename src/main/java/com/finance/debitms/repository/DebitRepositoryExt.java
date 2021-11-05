@@ -5,5 +5,4 @@ import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
 import reactor.core.publisher.Mono;
 
 public interface DebitRepositoryExt extends ReactiveMongoRepository<Debit, String> {
-    Mono<Debit> findByClientId(String clientId);
 }

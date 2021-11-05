@@ -21,10 +21,6 @@ public class DebitService{
         return debitRepository.findById(id);
     }
 
-    public Mono<Debit> findByClientId(String clientId){
-        return debitRepository.findByClientId(clientId);
-    }
-
     public Mono<Debit> save(Debit debit){
         return debitRepository.save(debit);
     }

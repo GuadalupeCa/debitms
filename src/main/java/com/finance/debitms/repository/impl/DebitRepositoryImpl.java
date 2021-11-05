@@ -25,11 +25,6 @@ public class DebitRepositoryImpl implements DebitRepository {
     }
 
     @Override
-    public Mono<Debit> findByClientId(String clientId) {
-        return debitRepository.findByClientId(clientId);
-    }
-
-    @Override
     public Mono<Debit> save(Debit debit) {
         return debitRepository.save(debit);
     }

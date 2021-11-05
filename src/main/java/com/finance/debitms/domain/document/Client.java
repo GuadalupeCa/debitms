@@ -1,29 +1,22 @@
 package com.finance.debitms.domain.document;
 
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
+import lombok.Data;
+import org.springframework.format.annotation.DateTimeFormat;
 
-@Document(collection = "clients")
-@Getter
-@Setter
-@ToString
+import java.util.Date;
+
+@Data
 public class Client {
-    @Id
-    private String id;
-    private String DNI;
+
+    private String documentIdentityType;
+    private String documentIdentityNumber;
     private String name;
-    private String direction;
+    private String type;
     private String phoneNumber;
+    private String address;
+    private String email;
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
+    private Date createAt;
 
 
-    public Client(String DNI, String name, String direction, String phoneNumber) {
-        this.DNI = DNI;
-        this.name = name;
-        this.direction = direction;
-        this.phoneNumber = phoneNumber;
-
-    }
 }

@@ -7,7 +7,6 @@ import reactor.core.publisher.Mono;
 public interface DebitRepository {
     Flux<Debit> findAll();
     Mono<Debit> findById(String id);
-    Mono<Debit> findByClientId(String clientId);
     Mono<Debit> save(Debit debit);
     Mono<Void> deleteById(String id);
 }

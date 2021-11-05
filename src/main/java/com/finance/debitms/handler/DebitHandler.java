@@ -34,20 +34,9 @@ public class DebitHandler {
         return ServerResponse.ok().body(debitService.findById(id), Debit.class);
     }
 
-    public Mono findByClientId(ServerRequest serverRequest) {
-        String id = serverRequest.pathVariable("id");
-        log.info("Find products by ClientId: {}", id);
-        Mono<Debit> debit = debitService.findByClientId(id);
-
-        return debit.flatMap(d -> WebClient.create()
-                .get()
-                .uri("http://localhost:8081/product/{id})", d.getProductId())
-                .retrieve()
-                .bodyToMono(Product.class));
-    }
-
     public Mono save(ServerRequest serverRequest) {
         Mono<Debit> debit = serverRequest.bodyToMono(Debit.class);
+
         log.info("Save debit");
         return debit.flatMap( d -> ServerResponse
                 .status(HttpStatus.CREATED)
