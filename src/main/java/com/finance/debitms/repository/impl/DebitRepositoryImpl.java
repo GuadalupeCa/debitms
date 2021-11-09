@@ -33,4 +33,9 @@ public class DebitRepositoryImpl implements DebitRepository {
     public Mono<Void> deleteById(String id) {
         return debitRepository.deleteById(id);
     }
+
+    @Override
+    public Flux<Debit> findByClientDocumentIdentityNumber(String documentIdentityNumber) {
+        return debitRepository.findByClientDocumentIdentityNumber(documentIdentityNumber);
+    }
 }

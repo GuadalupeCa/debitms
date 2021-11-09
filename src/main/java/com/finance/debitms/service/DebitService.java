@@ -28,4 +28,10 @@ public class DebitService{
     public Mono<Void> deleteById(String id){
         return debitRepository.deleteById(id);
     }
+
+    public Flux<Debit> findByClientDocumentIdentityNumber(String documentIdentityNumber){
+        return debitRepository.findByClientDocumentIdentityNumber(documentIdentityNumber);
+    }
+
+
 }

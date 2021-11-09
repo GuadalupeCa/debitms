@@ -6,7 +6,6 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 import java.util.Date;
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
 @Data
 public class Product{
 

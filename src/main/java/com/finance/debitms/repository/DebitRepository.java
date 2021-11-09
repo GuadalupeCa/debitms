@@ -9,4 +9,6 @@ public interface DebitRepository {
     Mono<Debit> findById(String id);
     Mono<Debit> save(Debit debit);
     Mono<Void> deleteById(String id);
+    Flux<Debit> findByClientDocumentIdentityNumber(String documentIdentityNumber);
+
 }
