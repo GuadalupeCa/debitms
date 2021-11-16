@@ -36,6 +36,11 @@ public class DebitRepositoryImpl implements DebitRepository {
 
     @Override
     public Flux<Debit> findByClientDocumentIdentityNumber(String documentIdentityNumber) {
-        return debitRepository.findByClientDocumentIdentityNumber(documentIdentityNumber);
+        return debitRepository.findByClientDocumentIdentityNumberAndStatusTrue(documentIdentityNumber);
+    }
+
+    @Override
+    public Flux<Debit> findByAccount(String account) {
+        return debitRepository.findByAccount(account);
     }
 }

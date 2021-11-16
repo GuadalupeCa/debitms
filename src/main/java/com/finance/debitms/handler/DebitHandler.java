@@ -4,15 +4,15 @@ import com.finance.debitms.domain.document.Client;
 import com.finance.debitms.domain.document.Debit;
 import com.finance.debitms.domain.document.Product;
 import com.finance.debitms.service.DebitService;
-import com.mongodb.internal.connection.Server;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.github.resilience4j.reactor.circuitbreaker.operator.CircuitBreakerOperator;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cloud.context.config.annotation.RefreshScope;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -21,7 +21,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import lombok.extern.slf4j.Slf4j;
 
-import java.rmi.ServerError;
 import java.util.*;
 
 @Slf4j
@@ -30,6 +29,8 @@ public class DebitHandler {
 
     @Autowired
     private DebitService debitService;
+
+    CircuitBreaker circuitBreaker = CircuitBreaker.of("DEBITSERVICE", CircuitBreakerConfig.ofDefaults());
 
     public Mono findAll(ServerRequest serverRequest) {
         log.info("Find all clients");
@@ -44,127 +45,141 @@ public class DebitHandler {
     }
 
     public Mono save(ServerRequest serverRequest) {
-        Map<String, Object> response = new HashMap<>();
+        Map<String, Object> responseMessage = new HashMap<>();
         Mono<Debit> debit = serverRequest.bodyToMono(Debit.class);
-        response.put("Note", "No se puede proceder con el proceso de registro");
+        responseMessage.put("Note", "No se puede proceder con el proceso de registro");
 
         return debit
-            .flatMap(debitToSave -> {
-                Client clientData;
-                log.info("Validate document identity number");
+                .flatMap(debitToSave -> {
+                    log.info("Validate document identity number");
 
-                if (debitToSave.getClient().getDocumentIdentityNumber().isEmpty()) {
-                    log.info("entra");
+                    if(debitToSave.getClient() == null ) {
+                        log.info("no cliente");
 
-                    response.put("Message", "Es necesario tener el numero de documento de identidad del cliente");
-                    return ServerResponse.status(HttpStatus.NO_CONTENT)
-                            .body(BodyInserters.fromValue(response));
-                } else if(debitToSave.getClient().getType().getName().isEmpty()){
-                    log.info("entr2");
-
-                    clientData = WebClient.builder().build().get()
-                            .uri("http://localhost:8080/client/ide/{ide}", debitToSave.getClient().getDocumentIdentityNumber())
-                            .retrieve()
-                            .bodyToMono(Client.class).block();
-                } else clientData = debitToSave.getClient();
-
-                debitToSave.setClient(clientData);
-
-                log.info("Validate data of the representatives if it has");
-                if(debitToSave.getRepresentatives() != null){
-                    Long numberRepresentatives = debitToSave.getRepresentatives().stream().count();
-
-                    if(numberRepresentatives > 0) {
-                        List<Client> representativesData = new ArrayList<>();
-
-                        debitToSave.getRepresentatives().stream()
-                                .map(c -> {
-                                    if(c.getDocumentIdentityNumber().isEmpty()){
-                                        response.put("Message", "Es necesario tener el numero de documento de identidad del (de los) representante(s).");
-                                        return ServerResponse.status(HttpStatus.NO_CONTENT)
-                                                .body(BodyInserters.fromValue(response));
-                                    } else if(c.getType().getName().isEmpty()){
-                                        Client representativeData = WebClient.builder().build().get()
-                                                .uri("http://localhost:8080/client/ide/{ide}", c.getDocumentIdentityNumber())
-                                                .retrieve()
-                                                .bodyToMono(Client.class).block();
-                                        if(representativeData.getType().getName().toUpperCase() == "EMPRESARIAL") {
-                                            response.put("Message", "El(los) representante(s) de la cuenta empresarial debe ser una persona natural.");
-                                            return ServerResponse.status(HttpStatus.NO_CONTENT)
-                                                    .body(BodyInserters.fromValue(response));
-                                        } else representativesData.add(representativeData);
-                                    } else representativesData.add(c);
-
-                                    return representativesData;
-                                });
-
-                        debitToSave.setRepresentatives(representativesData);
-                    }
-                }
-
-                log.info("Validate data of the signers if it has");
-                if(debitToSave.getSigners() != null) {
-                    Long numberSigners = debitToSave.getSigners().stream().count();
-
-                    if (numberSigners > 0) {
-                        List<Client> signersData = new ArrayList<>();
-
-                        debitToSave.getRepresentatives().stream().map(c -> {
-                            if (c.getDocumentIdentityNumber().isEmpty()) {
-                                response.put("Message", "Es necesario tener el numero de documento de identidad del (de los) firmante(s).");
-                                return ServerResponse.status(HttpStatus.NO_CONTENT)
-                                        .body(BodyInserters.fromValue(response));
-                            } else if (c.getType().getName().isEmpty()) {
-                                Client signerData = WebClient.builder().build().get()
-                                        .uri("http://localhost:8080/client/ide/{ide}", c.getDocumentIdentityNumber())
-                                        .retrieve()
-                                        .bodyToMono(Client.class).block();
-
-                                if (signerData.getType().getName().toUpperCase() == "EMPRESARIAL") {
-                                    response.put("Message", "El(los) firmante(s) de la cuenta empresarial debe ser una persona natural.");
-                                    return ServerResponse.status(HttpStatus.NO_CONTENT)
-                                            .body(BodyInserters.fromValue(response));
-                                } else signersData.add(signerData);
-                            } else signersData.add(c);
-
-                            return signersData;
-                        });
-
-                        debitToSave.setSigners(signersData);
-                    }
-                }
-
-                log.info("Validate existed debits account of the client.");
-                Flux<Debit> clientDebits = debitService.findByClientDocumentIdentityNumber(debitToSave.getClient().getDocumentIdentityNumber());
-
-                return clientDebits.collectList().flatMap(accounts -> {
-                    log.info(String.valueOf(accounts));
-                    boolean save = false;
-                    switch(debitToSave.getClient().getType().getName().toUpperCase()){
-                        case "PERSONAL": {
-                            if (accounts.isEmpty())  save = true;
-                            else {
-                                response.put("Message", "El cliente no puede aperturar mas de una cuenta de debito");
-                            }
-                        }
-                        case "EMPRESARIAL": {
-                            if (debitToSave.getProduct().getName().toUpperCase() == "CUENTA CORRIENTE" & debitToSave.getRepresentatives().stream().count() > 0) save = true;
-                            else {
-                                response.put("Message", "El cliente solo puede aperturar cuentas corrientes");
-                            }
-                        }
-                    }
-                    if (save) {
-                        log.info("Save debit account.");
-                        return ServerResponse.ok().body(debitService.save(debitToSave), Debit.class);
-                    } else {
+                        responseMessage.put("Message", "Los datos del cliente son necesarios");
                         return ServerResponse.status(HttpStatus.NO_CONTENT)
-                                .body(BodyInserters.fromValue(response));
+                                .body(BodyInserters.fromValue(responseMessage));
+
+                    } else if (debitToSave.getClient().getDocumentIdentityNumber() != null) {
+                        log.info("check existence of the client");
+                        Flux<Client> clientData = WebClient.builder().build().get()
+                                .uri("http://localhost:8080/client/ide/{ide}", debitToSave.getClient().getDocumentIdentityNumber())
+                                .retrieve()
+                                .bodyToFlux(Client.class);
+
+                        clientData.collectList().flatMap(c -> {
+                           if(c.isEmpty()){
+                               log.info("regitrar nuevo cliente");
+                                return WebClient.builder().build().post()
+                                       .uri("http://localhost:8080/client/save")
+                                       .contentType(MediaType.APPLICATION_JSON)
+                                       .bodyValue(debitToSave.getClient())
+                                        .retrieve()
+                                        .bodyToMono(Client.class);
+                           } else return Mono.empty();
+                        }).subscribe();
                     }
+
+                    if(debitToSave.getRepresentatives() != null){
+
+                        Long numberRepresentatives = debitToSave.getRepresentatives().stream().count();
+
+                        if(numberRepresentatives > 0) {
+                            log.info("Validate data of representatives");
+
+                            debitToSave.getRepresentatives().stream()
+                                    .forEach(representative -> {
+                                        log.info("v" +representative.getDocumentIdentityNumber());
+                                        if(representative.getType().getName().toUpperCase() != "EMPRESARIAL" & representative.getDocumentIdentityNumber() != null) {
+                                            Flux<Client> representativeData = WebClient.builder().build().get()
+                                                    .uri("http://localhost:8080/client/ide/{ide}", representative.getDocumentIdentityNumber())
+                                                    .retrieve()
+                                                    .bodyToFlux(Client.class);
+
+                                            representativeData.collectList().flatMap(r -> {
+                                                if (r.isEmpty()) {
+                                                    log.info("regitrar nuevo representante");
+                                                    return WebClient.builder().build().post()
+                                                            .uri("http://localhost:8080/client/save")
+                                                            .contentType(MediaType.APPLICATION_JSON)
+                                                            .bodyValue(representative)
+                                                            .retrieve()
+                                                            .bodyToMono(Client.class );
+                                                } else return Mono.just(r);
+                                            }).subscribe();
+                                        }
+                                        log.info("validar tipo de representante");
+
+                                    });
+                        }
+                    }
+
+                    if(debitToSave.getSigners() != null) {
+                        Long numberSigners = debitToSave.getSigners().stream().count();
+
+                        if (numberSigners > 0) {
+                            log.info("Validate data of the signers if it has");
+
+                            debitToSave.getSigners().stream()
+                                    .forEach(signer -> {
+                                        if (signer.getDocumentIdentityNumber().isEmpty()) {
+                                            responseMessage.put("Message", "Es necesario tener el numero de documento de identidad del (de los) firmante(s).");
+//                                            return ServerResponse.status(HttpStatus.NO_CONTENT)
+//                                                    .body(BodyInserters.fromValue(responseMessage));
+                                        } else if (signer.getType().getName().toUpperCase() != "EMPRESARIAL" & signer.getDocumentIdentityNumber() != null) {
+                                            Flux<Client> representativeData = WebClient.builder().build().get()
+                                                    .uri("http://localhost:8080/client/ide/{ide}", signer.getDocumentIdentityNumber())
+                                                    .retrieve()
+                                                    .bodyToFlux(Client.class);
+
+                                            representativeData.collectList().flatMap(r -> {
+                                                if (r.isEmpty()) {
+                                                    log.info("regitrar nuevo representante");
+                                                    return WebClient.builder().build().post()
+                                                            .uri("http://localhost:8080/client/save")
+                                                            .contentType(MediaType.APPLICATION_JSON)
+                                                            .bodyValue(signer)
+                                                            .retrieve()
+                                                            .bodyToMono(Client.class);
+                                                } else return Mono.just(r);
+                                            }).subscribe();
+                                        }
+                                    });
+                        }
+                    }
+
+                    log.info("Validate existed debits account of the client.");
+                    Flux<Debit> clientDebits = debitService.findByClientDocumentIdentityNumber(debitToSave.getClient().getDocumentIdentityNumber());
+
+                    return clientDebits.collectList().flatMap(accounts -> {
+                        log.info(String.valueOf(accounts));
+                        boolean save = false;
+                        switch(debitToSave.getClient().getType().getName().toUpperCase()){
+                            case "PERSONAL": {
+                                if (accounts.isEmpty())  save = true;
+                                else {
+                                    responseMessage.put("Message", "El cliente no puede aperturar mas de una cuenta de debito");
+                                }
+                            }
+                            case "EMPRESARIAL": {
+                                if (debitToSave.getProduct().getName().equalsIgnoreCase("CUENTA CORRIENTE") & debitToSave.getRepresentatives().stream().count() > 0) save = true;
+                                else {
+                                    responseMessage.put("Message", "El cliente empresarial solo puede aperturar cuentas corrientes y tener al menos un representante");
+                                }
+                            }
+                        }
+                        if (save) {
+                            log.info("Save debit account.");
+                            return ServerResponse.ok().body(debitService.save(debitToSave), Debit.class);
+                        } else {
+                            return ServerResponse.status(HttpStatus.NO_CONTENT)
+                                    .body(BodyInserters.fromValue(responseMessage));
+                        }
+                    });
                 });
-            });
     }
 
+//    @CircuitBreaker(name = DEBIT_SERVICE, fallbackMethod = "debitUpdateFallback")
     public Mono update(ServerRequest serverRequest) {
         Map<String, Object> response = new HashMap<>();
         Mono<Debit> debit = serverRequest.bodyToMono(Debit.class);
@@ -173,47 +188,60 @@ public class DebitHandler {
         return debit
                 .flatMap(debitToUpdate -> {
                     //validate the number of the representatives
-                    if(debitToUpdate.getClient().getType().getName().toUpperCase() == "EMPRESARIAL") {
+                    if(debitToUpdate.getClient().getType().getName().equalsIgnoreCase("EMPRESARIAL")) {
 
                         List<Client> representativesData = new ArrayList<>();
                         Long numberRepresentatives = debitToUpdate.getRepresentatives().stream().count();
 
                         if(numberRepresentatives > 0) {
                             debitToUpdate.getRepresentatives().stream()
-                                    .map(c -> {
-                                        if(c.getDocumentIdentityNumber().isEmpty()){
-                                            response.put("Message", "Es necesario tener el numero de documento de identidad del (de los) representante(s).");
-                                            return ServerResponse.status(HttpStatus.NO_CONTENT)
-                                                    .body(BodyInserters.fromValue(response));
-                                        } else if(c.getType().getName().isEmpty()){
-                                            Client representativeData = WebClient.builder().build().get()
-                                                    .uri("http://localhost:8080/client/ide/{ide}", c.getDocumentIdentityNumber())
+                                    .forEach(representative -> {
+                                        if(representative.getType().getName().toUpperCase() != "EMPRESARIAL" & representative.getDocumentIdentityNumber() != null) {
+
+                                            Flux<Client> representativeData = WebClient.builder().build().get()
+                                                    .uri("http://localhost:8080/client/ide/{ide}", representative.getDocumentIdentityNumber())
                                                     .retrieve()
-                                                    .bodyToMono(Client.class).block();
-                                            if(representativeData.getType().getName().toUpperCase() == "EMPRESARIAL") {
-                                                response.put("Message", "El(los) representante(s) de la cuenta empresarial debe ser una persona natural.");
-                                                return ServerResponse.status(HttpStatus.NO_CONTENT)
-                                                        .body(BodyInserters.fromValue(response));
-                                            } else representativesData.add(representativeData);
-                                        } else representativesData.add(c);
+                                                    .bodyToFlux(Client.class)
+                                                    .transform(CircuitBreakerOperator.of(circuitBreaker))
+                                                    .onErrorResume(error -> clientFallback());
 
-                                        return representativesData;
+                                            log.info("validar tipo de representante");
+
+                                            representativeData.map(c -> {
+                                                        if (c.getName().equalsIgnoreCase("NO_NAME")) {
+                                                            log.info("entro");
+                                                            return ServerResponse.status(HttpStatus.NO_CONTENT)
+                                                                    .body(BodyInserters.fromValue(response));
+
+                                                        }
+                                                        else return c;
+                                                    })
+                                                    .collectList()
+                                                    .flatMap(r -> {
+                                                        if (r.isEmpty()) {
+                                                            log.info("regitrar nuevo representante");
+                                                            return WebClient.builder().build().post()
+                                                                    .uri("http://localhost:8080/client/save")
+                                                                    .contentType(MediaType.APPLICATION_JSON)
+                                                                    .bodyValue(representative)
+                                                                    .retrieve()
+                                                                    .bodyToMono(Client.class)
+                                                                    .transform(CircuitBreakerOperator.of(circuitBreaker))
+                                                                    .onErrorResume(error -> clientFallback());
+                                                            } else return Mono.just(r);
+                                                        })
+                                                    .subscribe();
+                                        }
                                     });
-
-                            debitToUpdate.setRepresentatives(representativesData);
-                            log.info("Update debit");
-                            return debit.flatMap( d -> ServerResponse
-                                    .status(HttpStatus.CREATED)
-                                    .body( debitService.save(d), Debit.class));
                         } else {
                             response.put("Message", "Se debe tener al menos un representante de la cuenta empresarial.");
                             return ServerResponse.status(HttpStatus.NO_CONTENT)
                                     .body(BodyInserters.fromValue(response));
                         }
                     }
-                    return debit.flatMap( d -> ServerResponse
+                    return ServerResponse
                             .status(HttpStatus.CREATED)
-                            .body( debitService.save(d), Debit.class));
+                            .body( debitService.save(debitToUpdate), Debit.class);
                 });
     }
 
@@ -231,4 +259,34 @@ public class DebitHandler {
                 .body(debitService.findByClientDocumentIdentityNumber(documentIdentityNumber),Debit.class);
     }
 
+    public Mono findByAccount(ServerRequest serverRequest) {
+        String account = serverRequest.pathVariable("account");
+        log.info("Find by Account: {}", account);
+        return ServerResponse.ok().body(debitService.findByAccount(account), Debit.class);
+    }
+
+    public Mono<Debit> debitFallback() {
+        log.info("circuit");
+        return Mono.just(Debit
+                .builder()
+                .id("FAILED")
+                .client(Client.builder()
+                        .name("NO_NAME")
+                        .documentIdentityNumber("NO_NUMBER").build())
+                .account("UNKNOWN_ACCOUNT")
+                .product(Product.builder()
+                        .name("NO_NAME").build())
+                .balance(0)
+                .build());
+    }
+
+    public Mono<Client> clientFallback() {
+        log.info("circuit client");
+        return Mono.just(Client
+                .builder()
+                .id("FAILED")
+                .name("NO_NAME")
+                .documentIdentityNumber("NO_NUMBER")
+                .build());
+    }
 }

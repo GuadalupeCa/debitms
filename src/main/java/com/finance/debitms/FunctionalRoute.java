@@ -19,6 +19,7 @@ public class FunctionalRoute {
         return RouterFunctions
                 .route(GET("/debit").and(accept(MediaType.APPLICATION_JSON)), debitHandler::findAll)
                 .andRoute(GET("/debit/{id}").and(accept(MediaType.APPLICATION_JSON)), debitHandler::findById)
+                .andRoute(GET("/debit/account/{account}").and(accept(MediaType.APPLICATION_JSON)), debitHandler::findByAccount)
                 .andRoute(GET("/debit/client/{ide}").and(accept(MediaType.APPLICATION_JSON)), debitHandler::findByClientDocumentIdentityNumber)
                 .andRoute(POST("/debit/save").and(accept(MediaType.APPLICATION_JSON)), debitHandler::save)
                 .andRoute(PUT("/debit/update").and(accept(MediaType.APPLICATION_JSON)), debitHandler::update)
