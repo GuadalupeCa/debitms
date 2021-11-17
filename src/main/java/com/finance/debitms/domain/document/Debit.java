@@ -38,6 +38,7 @@ public class Debit {
     private double annualEffectiveRateReturn;
     private Integer numberRepresentatives;
     private Integer numberSigners;
+    private String cardNumber;
     private String currency;
     private boolean status = true;
 
@@ -48,7 +49,7 @@ public class Debit {
     @DateTimeFormat(pattern = "yyyy-MM-dd")
     private Date lastMovement;
 
-    public Debit(Client client, List<Client> representatives, List<Client> signers, String account, Product product, double balance, double initialBalance, double accruedInterest, double interestEarned, double annualEffectiveRate, double annualEffectiveRateReturn, Integer numberRepresentatives, Integer numberSigners, String currency, boolean status, Date createAt, Date cancelAt, Date lastMovement) {
+    public Debit(Client client, List<Client> representatives, List<Client> signers, String account, Product product, double balance, double initialBalance, double accruedInterest, double interestEarned, double annualEffectiveRate, double annualEffectiveRateReturn, Integer numberRepresentatives, Integer numberSigners, String cardNumber, String currency, boolean status, Date createAt, Date cancelAt, Date lastMovement) {
         this.client = client;
         this.representatives = representatives;
         this.signers = signers;
@@ -62,6 +63,7 @@ public class Debit {
         this.annualEffectiveRateReturn = annualEffectiveRateReturn;
         this.numberRepresentatives = numberRepresentatives;
         this.numberSigners = numberSigners;
+        this.cardNumber = cardNumber;
         this.currency = currency;
         this.status = status;
         this.createAt = createAt;
